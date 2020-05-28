@@ -10,6 +10,7 @@ export class Store {
     // Auto install if it is not done yet and `window` has `Vue`.
     // To allow users to avoid auto-installation in some cases,
     // this code should be placed here. See #731
+    // window 环境自动 install vuex
     if (!Vue && typeof window !== 'undefined' && window.Vue) {
       install(window.Vue)
     }
@@ -25,19 +26,19 @@ export class Store {
       strict = false
     } = options
 
-    // store internal state
+    // store internal state 内部状态
     this._committing = false
     this._actions = Object.create(null)
     this._actionSubscribers = []
     this._mutations = Object.create(null)
     this._wrappedGetters = Object.create(null)
-    this._modules = new ModuleCollection(options)
+    this._modules = new ModuleCollection(options) // 模块解析注册
     this._modulesNamespaceMap = Object.create(null)
     this._subscribers = []
     this._watcherVM = new Vue()
     this._makeLocalGettersCache = Object.create(null)
 
-    // bind commit and dispatch to self
+    // bind commit and dispatch to self，commit、dispatch 的 this 指向 store 本身
     const store = this
     const { dispatch, commit } = this
     this.dispatch = function boundDispatch (type, payload) {
@@ -74,6 +75,7 @@ export class Store {
     return this._vm._data.$$state
   }
 
+  // 不允许直接修改state
   set state (v) {
     if (__DEV__) {
       assert(false, `use store.replaceState() to explicit replace store state.`)
@@ -89,7 +91,7 @@ export class Store {
     } = unifyObjectStyle(_type, _payload, _options)
 
     const mutation = { type, payload }
-    const entry = this._mutations[type]
+    const entry = this._mutations[type] // mutation 函数数组
     if (!entry) {
       if (__DEV__) {
         console.error(`[vuex] unknown mutation type: ${type}`)
@@ -98,7 +100,8 @@ export class Store {
     }
     this._withCommit(() => {
       entry.forEach(function commitIterator (handler) {
-        handler(payload)
+        // handler是定义的mutation函数，第一个参数是
+        handler(payload) // 执行mutation
       })
     })
 
@@ -244,6 +247,7 @@ export class Store {
     resetStore(this, true)
   }
 
+  // 记录 committing 状态
   _withCommit (fn) {
     const committing = this._committing
     this._committing = true
@@ -278,6 +282,13 @@ function resetStore (store, hot) {
   resetStoreVM(store, state, hot)
 }
 
+/**
+ * vuex响应式核心
+ * 创建一个 Vue 实例来管理state，使用vue本身的响应机制
+ * @param {*} store 
+ * @param {*} state 
+ * @param {*} hot 
+ */
 function resetStoreVM (store, state, hot) {
   const oldVm = store._vm
 
@@ -328,11 +339,19 @@ function resetStoreVM (store, state, hot) {
   }
 }
 
+/**
+ * 安装模块
+ * @param {*} store 
+ * @param {*} rootState 
+ * @param {*} path []
+ * @param {*} module 根模块 Module实例
+ * @param {*} hot 
+ */
 function installModule (store, rootState, path, module, hot) {
-  const isRoot = !path.length
+  const isRoot = !path.length // 是否是根模块
   const namespace = store._modules.getNamespace(path)
 
-  // register in namespace map
+  // register in namespace map命名模块注册到命名空间map
   if (module.namespaced) {
     if (store._modulesNamespaceMap[namespace] && __DEV__) {
       console.error(`[vuex] duplicate namespace ${namespace} for the namespaced module ${path.join('/')}`)
@@ -340,7 +359,7 @@ function installModule (store, rootState, path, module, hot) {
     store._modulesNamespaceMap[namespace] = module
   }
 
-  // set state
+  // set state，Vue set 模块state挂载到rootState上
   if (!isRoot && !hot) {
     const parentState = getNestedState(rootState, path.slice(0, -1))
     const moduleName = path[path.length - 1]
@@ -522,6 +541,11 @@ function getNestedState (state, path) {
   return path.reduce((state, key) => state[key], state)
 }
 
+// 处理对象类型的提交
+// store.commit({
+//   type: 'increment',
+//   amount: 10
+// })
 function unifyObjectStyle (type, payload, options) {
   if (isObject(type) && type.type) {
     options = payload
@@ -536,6 +560,7 @@ function unifyObjectStyle (type, payload, options) {
   return { type, payload, options }
 }
 
+// vuex插件安装
 export function install (_Vue) {
   if (Vue && _Vue === Vue) {
     if (__DEV__) {

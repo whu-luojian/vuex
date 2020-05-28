@@ -1,33 +1,62 @@
-# Vuex [![Build Status](https://circleci.com/gh/vuejs/vuex/tree/dev.png?style=shield)](https://circleci.com/gh/vuejs/vuex)
+# Vuex 源码解读
 
-> Centralized State Management for Vue.js.
+## Vuex 响应式核心
+```
+/**
+ * vuex响应式核心
+ * 创建一个 Vue 实例来管理state，使用vue本身的响应机制
+ * @param {*} store 
+ * @param {*} state 
+ * @param {*} hot 
+ */
+function resetStoreVM (store, state, hot) {
+  const oldVm = store._vm
 
-<p align="center">
-  <img width="700px" src="https://raw.githubusercontent.com/vuejs/vuex/dev/docs/.vuepress/public/vuex.png">
-</p>
+  // bind store public getters
+  store.getters = {}
+  // reset local getters cache
+  store._makeLocalGettersCache = Object.create(null)
+  const wrappedGetters = store._wrappedGetters
+  const computed = {}
+  forEachValue(wrappedGetters, (fn, key) => {
+    // use computed to leverage its lazy-caching mechanism
+    // direct inline function use will lead to closure preserving oldVm.
+    // using partial to return function with only arguments preserved in closure environment.
+    computed[key] = partial(fn, store)
+    Object.defineProperty(store.getters, key, {
+      get: () => store._vm[key],
+      enumerable: true // for local getters
+    })
+  })
 
-- [What is Vuex?](https://vuex.vuejs.org/)
-- [Full Documentation](http://vuex.vuejs.org/)
+  // use a Vue instance to store the state tree
+  // suppress warnings just in case the user has added
+  // some funky global mixins
+  const silent = Vue.config.silent
+  Vue.config.silent = true
+  store._vm = new Vue({
+    data: {
+      $$state: state
+    },
+    computed
+  })
+  Vue.config.silent = silent
 
-## Examples
+  // enable strict mode for new vm
+  if (store.strict) {
+    enableStrictMode(store)
+  }
 
-- [Counter](https://github.com/vuejs/vuex/tree/dev/examples/counter)
-- [Counter with Hot Reload](https://github.com/vuejs/vuex/tree/dev/examples/counter-hot)
-- [TodoMVC](https://github.com/vuejs/vuex/tree/dev/examples/todomvc)
-- [Flux Chat](https://github.com/vuejs/vuex/tree/dev/examples/chat)
-- [Shopping Cart](https://github.com/vuejs/vuex/tree/dev/examples/shopping-cart)
-
-Running the examples:
-
-``` bash
-$ npm install
-$ npm run dev # serve examples at localhost:8080
+  if (oldVm) {
+    if (hot) {
+      // dispatch changes in all subscribed watchers
+      // to force getter re-evaluation for hot reloading.
+      store._withCommit(() => {
+        oldVm._data.$$state = null
+      })
+    }
+    Vue.nextTick(() => oldVm.$destroy())
+  }
+}
 ```
 
-## Contribution
-
-Please make sure to read the [Contributing Guide](https://github.com/vuejs/vuex/blob/dev/.github/contributing.md) before making a pull request.
-
-## License
-
-[MIT](http://opensource.org/licenses/MIT)

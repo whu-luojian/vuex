@@ -2,17 +2,29 @@ import Module from './module'
 import { assert, forEachValue } from '../util'
 
 export default class ModuleCollection {
+  /**
+   * 
+   * @param {*} rawRootModule new Store()传入的配置信息
+   */
   constructor (rawRootModule) {
-    // register root module (Vuex.Store options)
+    // register root module (Vuex.Store options)注册根模块
     this.register([], rawRootModule, false)
   }
 
+  /**
+   * 获取模块
+   * @param {*} path path 数组，为空表示根模块this.root
+   */
   get (path) {
     return path.reduce((module, key) => {
       return module.getChild(key)
     }, this.root)
   }
 
+  /**
+   * 根据path数组获取命名空间，根模块path为[], 命名空间为 ''
+   * @param {*} path 
+   */
   getNamespace (path) {
     let module = this.root
     return path.reduce((namespace, key) => {
@@ -25,22 +37,29 @@ export default class ModuleCollection {
     update([], this.root, rawRootModule)
   }
 
+  /**
+   * 
+   * @param {*} path 数组[]
+   * @param {*} rawModule store 配置
+   * @param {*} runtime 
+   */
   register (path, rawModule, runtime = true) {
     if (__DEV__) {
-      assertRawModule(path, rawModule)
+      assertRawModule(path, rawModule) // 检查模块getters、mutations、actions类型是否正确
     }
 
     const newModule = new Module(rawModule, runtime)
     if (path.length === 0) {
-      this.root = newModule
+      this.root = newModule // 第一次进来注册根模块
     } else {
       const parent = this.get(path.slice(0, -1))
       parent.addChild(path[path.length - 1], newModule)
     }
 
-    // register nested modules
+    // register nested modules 注册modules
     if (rawModule.modules) {
       forEachValue(rawModule.modules, (rawChildModule, key) => {
+        // module 的 key 作为 path
         this.register(path.concat(key), rawChildModule, runtime)
       })
     }

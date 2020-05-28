@@ -1,7 +1,13 @@
+/**
+ * vuex 安装
+ * @param {*} Vue 
+ */
+
 export default function (Vue) {
-  const version = Number(Vue.version.split('.')[0])
+  const version = Number(Vue.version.split('.')[0]) // vue 主版本
 
   if (version >= 2) {
+    // vue 2.x
     Vue.mixin({ beforeCreate: vuexInit })
   } else {
     // override init and inject vuex init procedure
@@ -17,6 +23,7 @@ export default function (Vue) {
 
   /**
    * Vuex init hook, injected into each instances init hooks list.
+   * 每个组件 beforeCreate 时初始化 store
    */
 
   function vuexInit () {
